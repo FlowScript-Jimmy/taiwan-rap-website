@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day by Day — Synced Lyrics</title>
+<style>
+  :root{
+    --bg: #0a0e14;
+    --panel: #10161f;
+    --line: #232b38;
+    --paper: #e8edf5;
+    --paper-dim: #7c8a9c;
+    --paper-faint: #4a5566;
+    --cyan: #4cc9f0;
+    --cyan-dim: #2b6f87;
+    --amber: #f2a93b;
+    --mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --display: 'Anton', 'Arial Narrow', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  html, body{ height: auto; overflow: visible; }
+  body{
+    background: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(76,201,240,0.08), transparent 60%), var(--bg);
+    color: var(--paper);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.001s !important; transition-duration:0.001s !important;} }
+
+  .skyline{
+    position: fixed;
+    left:0; right:0; bottom:0;
+    height: 90px;
+    background: linear-gradient(to top, rgba(76,201,240,0.06), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap{
+    max-width: 720px; width:100%; margin: 0 auto; padding: 20px 22px 40px;
+    position: relative; z-index: 1;
+  }
+  .top-fixed{
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg);
+    padding-top: 8px; margin-top: -8px;
+    padding-bottom: 4px;
+  }
+
+  @media (min-width: 900px){
+    .wrap{
+      max-width: 1140px;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 40px;
+      align-items: start;
+      padding-top: 28px;
+    }
+    .top-fixed{
+      position: static;
+      background: transparent;
+      padding: 0; margin: 0;
+      max-height: calc(100vh - 56px);
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    .lyrics{
+      margin-left: 0 !important;
+      border-top: none !important;
+      padding-top: 0 !important;
+      max-height: calc(100vh - 56px) !important;
+    }
+  }
+
+  .rail{
+    position: fixed; left: 12px; top: 24px; bottom: 24px; width: 2px;
+    background: var(--line); border-radius: 2px; z-index: 2;
+  }
+  .rail-fill{
+    position:absolute; bottom:0; left:0; width:100%;
+    background: var(--cyan); border-radius: 2px;
+    box-shadow: 0 0 8px rgba(76,201,240,0.6);
+  }
+
+  .head{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap: 16px; margin: 0 0 20px 18px;
+  }
+  .eyebrow{
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--amber); margin-bottom: 4px;
+  }
+  h1{
+    font-family: var(--display); font-weight: 400;
+    font-size: 42px; letter-spacing: 0.02em; margin:0; line-height: 0.95;
+    color: var(--paper);
+  }
+  .info-btn{
+    flex-shrink:0; width: 34px; height:34px; border-radius:50%;
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--paper-dim); font-style: italic; font-weight:700; font-size:14px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .info-btn:hover{ color: var(--cyan); border-color: var(--cyan-dim); }
+
+  .video-frame{
+    margin-left: 18px;
+    border-radius: 10px; overflow:hidden; border: 1px solid var(--line);
+    background:#000; margin-bottom: 26px;
+    box-shadow: 0 0 40px rgba(76,201,240,0.06);
+  }
+  #ytplayer{ width:100%; aspect-ratio: 16/9; display:block; }
+  .yt-fallback{
+    width:100%; aspect-ratio:16/9; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding: 24px;
+    background: linear-gradient(160deg, #0d1420, #060a10);
+    color: var(--paper-dim); font-size: 13px; line-height:1.6;
+  }
+  .yt-fallback strong{ color: var(--cyan); display:block; font-family: var(--display); font-size:20px; letter-spacing:0.02em; margin-bottom:8px; font-weight:400; }
+
+  .lang-toggle{
+    display:flex; align-items:center; gap:6px; margin-left:18px; margin-top:10px;
+  }
+  .lang-toggle button{
+    font-family: var(--mono); font-size:11px; letter-spacing:0.08em;
+    background: var(--panel); border:1px solid var(--line); color: var(--paper-dim);
+    padding: 5px 10px; border-radius:6px; cursor:pointer;
+  }
+  .lang-toggle button.on{ color: var(--cyan); border-color: var(--cyan-dim); }
+  .sync-offset{
+    display:flex; align-items:center; gap:6px; margin-left:18px; margin-top:6px;
+    font-family: var(--mono); font-size:11px; color: var(--paper-dim);
+  }
+  .sync-offset input{
+    width:60px; background:#080b10; border:1px solid var(--line); color:var(--paper);
+    border-radius:5px; padding:3px 6px; font-family: var(--mono); font-size:11px;
+  }
+
+  .panel{
+    margin-left: 18px;
+    background: var(--panel); border:1px solid var(--line); border-radius: 10px;
+    padding: 18px;
+  }
+  .panel h2{
+    font-family: var(--mono); font-size: 11px; letter-spacing:0.12em;
+    text-transform: uppercase; color: var(--paper-dim); margin: 0 0 12px;
+  }
+  textarea{
+    width:100%; min-height: 200px; background:#080b10; border:1px solid var(--line);
+    color: var(--paper); border-radius:8px; padding:12px; font-family: var(--sans);
+    font-size: 13px; line-height:1.6; resize:vertical;
+  }
+  .note{ font-size:11.5px; color:var(--paper-dim); line-height:1.6; margin-top:10px; }
+  button.primary{
+    background: var(--cyan); color:#03181f; border:none; border-radius:7px;
+    padding: 9px 16px; font-weight:700; font-size:13px; cursor:pointer; margin-top:12px;
+  }
+  button.ghost{
+    background:none; border:1px solid var(--line); color: var(--paper-dim);
+    border-radius:7px; padding:8px 14px; font-size:12px; cursor:pointer; margin-top: 10px;
+  }
+  button.ghost:hover{ color: var(--paper); border-color: var(--cyan-dim); }
+
+  .lyrics{
+    margin-left: 18px; margin-right: -6px; padding-right: 6px;
+    display:flex; flex-direction:column; gap:6px;
+    max-height: 60vh; overflow-y: auto;
+    scroll-padding-top: 4px;
+    padding-bottom: 24px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+  .lline{
+    padding: 10px 6px; border-radius:8px; cursor:pointer;
+    display:flex; flex-direction:column; gap:2px;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .lline .en{ font-family: var(--display); font-weight:400; font-size:22px; line-height:1.25; }
+  .lline .zh{ font-family: var(--sans); font-size:12px; font-style:italic; line-height:1.4; }
+  .lline .es{ font-family: var(--display); font-weight:400; font-size:22px; line-height:1.25; }
+  .lline .es-note{ font-family: var(--sans); font-size:11px; font-style:italic; color: var(--paper-faint); }
+  .lline.future{ opacity:.32; }
+  .lline.future .en, .lline.future .es{ color: var(--paper); }
+  .lline.future .zh{ color: var(--paper-dim); }
+  .lline.past{ opacity:.2; }
+  .lline.past .en, .lline.past .es{ color: var(--paper-dim); }
+  .lline.past .zh{ color: var(--paper-faint); }
+  .lline.active{ opacity:1; transform: translateX(4px) scale(1.02); }
+  .lline.active .en, .lline.active .es{ color: var(--cyan); text-shadow: 0 0 18px rgba(76,201,240,0.35); }
+  .lline.active .zh{ color: var(--paper); }
+
+
+  .timecode{
+    font-family: var(--mono); font-size: 11px; color: var(--paper-dim);
+    margin: 8px 0 0 18px;
+  }
+
+  .scrim{
+    position:fixed; inset:0; background: rgba(0,0,0,0.55); opacity:0; pointer-events:none;
+    transition: opacity .25s ease; z-index: 20;
+  }
+  .scrim.open{ opacity:1; pointer-events:auto; }
+  .about{
+    position:fixed; top:0; right:0; bottom:0; width:min(420px,88vw);
+    background: var(--panel); border-left:1px solid var(--line);
+    padding: 28px 26px 40px; transform: translateX(100%);
+    transition: transform .3s ease; z-index:21; overflow-y:auto;
+  }
+  .about.open{ transform: translateX(0); }
+  .about .close{
+    position:absolute; top:18px; right:18px; background:none; border:none;
+    color: var(--paper-dim); font-size:14px; cursor:pointer;
+  }
+  .about .close:hover{ color: var(--paper); }
+  .about h2{
+    font-family: var(--display); font-weight:400; font-size:30px; letter-spacing:0.02em;
+    margin: 0 0 18px; color: var(--cyan);
+  }
+  .about .body{ font-size:14px; line-height:1.75; color: var(--paper); }
+  .about .body p{ margin:0 0 14px; max-width: 46ch; }
+</style>
+</head>
+<body>
+
+<div class="skyline"></div>
+<div class="rail"><div class="rail-fill" id="railFill" style="height:0%"></div></div>
+
+<div class="wrap">
+  <div class="top-fixed">
+    <div class="head">
+      <div>
+        <div class="eyebrow">Gummy B</div>
+        <h1>DAY BY DAY</h1>
+      </div>
+      <button class="info-btn" id="infoBtn" aria-label="About this song">i</button>
+    </div>
+
+    <div class="video-frame">
+      <div id="localVideoWrap" style="display:none;">
+        <video id="localVideo" controls style="width:100%; display:block; background:#000;"></video>
+      </div>
+      <div id="ytplayer"></div>
+      <div id="ytFallback" class="yt-fallback" style="display:none;">
+        <strong>YouTube preview unavailable here</strong>
+        Opening this file directly (file://) blocks the YouTube embed.<br>
+        Upload your local MV below to preview — the YouTube version will work once this page is hosted online.
+      </div>
+    </div>
+    <div class="file-row" id="fileRow" style="margin-left:18px; margin-top:8px;">
+      <input type="file" id="localFileInput" accept="video/*">
+    </div>
+    <div class="timecode" id="timecode">00:00 / 00:00</div>
+
+    <div class="lang-toggle">
+      <span style="font-family:var(--mono); font-size:11px; color:var(--paper-faint);">Main line:</span>
+      <button id="langEnBtn" class="on">EN</button>
+      <button id="langEsBtn">ES</button>
+      <button class="ghost" id="editBtn" style="display:none; margin-top:0;">← Edit lyrics JSON</button>
+      <button class="ghost" id="exportBtn" style="display:none; margin-top:0; margin-left:auto;">Export lyrics.json ↓</button>
+    </div>
+    <div class="sync-offset" id="offsetRow">
+      Sync offset (s, positive = earlier):
+      <input type="number" id="offsetInput" value="0.3" step="0.1">
+    </div>
+
+    <div class="panel" id="loadPanel" style="margin-top:16px; margin-bottom:16px;">
+      <h2>Load Lyrics</h2>
+      <div class="note">Paste the JSON exported from your tap-sync tool ({start, zh, en} array). It's saved in this browser only — not sent anywhere.</div>
+      <textarea id="jsonInput" placeholder='[{"start":15.9,"zh":"...","en":"..."}, ...]'></textarea>
+      <button class="primary" id="loadBtn">Load →</button>
+      <div class="note" id="loadNote"></div>
+    </div>
+  </div>
+
+  <div class="lyrics" id="lyricsList" style="display:none;"></div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="about" id="aboutPanel">
+  <button class="close" id="closeBtn">✕</button>
+  <div class="eyebrow" style="margin-left:0;">Gummy B</div>
+  <h2>Day by Day</h2>
+  <div class="body">
+    <p style="font-family:var(--mono); font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--amber);">About the song</p>
+    <p>Day by Day is a diary set to a beat — the unglamorous math of hustle in a city that never quite lets you rest.</p>
+    <p>Beneath the skyline views and neon nights sits a quieter question: who's actually there for you when the day is done? The track traces the loop of grinding, doubting, and starting again — climbing stairs with no top floor, running in place on a treadmill of routine — while holding onto the people who've stuck around through it.</p>
+    <p>It's a letter to whoever's still figuring out their own version of "making it," co-produced with Gummy B, built one track at a time, one day at a time.</p>
+
+    <p style="font-family:var(--mono); font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--amber); margin-top:22px;">About the artist</p>
+    <p id="artistBioText">Fill this in with the artist's own story — where they're from, how they started, what this project means to them. Replace this placeholder paragraph in the HTML (search for <code style="font-size:11px;">artistBioText</code>).</p>
+  </div>
+</aside>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+(function(){
+  // ── MODE SWITCH ──────────────────────────────────────────────
+  // true  = admin/backend build: paste JSON, upload local video, edit lyrics, tune sync offset
+  // false = public/viewer build: read-only — loads lyrics from ./lyrics.json next to this file,
+  //         plays the fixed YouTube video below, no import controls shown at all
+  const ADMIN_MODE = true;
+  // ─────────────────────────────────────────────────────────────
+
+  const VIDEO_ID = 'EhR9XOtrv2k';
+  let player = null;
+  let lines = [];
+  let activeIndex = -1;
+  let activeSource = 'youtube'; // 'youtube' | 'local'
+
+  const localFileInput = document.getElementById('localFileInput');
+  const localVideoWrap = document.getElementById('localVideoWrap');
+  const localVideo = document.getElementById('localVideo');
+  const ytplayerEl = document.getElementById('ytplayer');
+  const fileRow = document.getElementById('fileRow');
+  const offsetRow = document.getElementById('offsetRow');
+  const exportBtn = document.getElementById('exportBtn');
+
+  if(!ADMIN_MODE){
+    if(fileRow) fileRow.style.display = 'none';
+    if(offsetRow) offsetRow.style.display = 'none';
+  }
+
+  let mainLang = 'en'; // 'en' | 'es'
+  let syncOffset = 0.3;
+
+  const langEnBtn = document.getElementById('langEnBtn');
+  const langEsBtn = document.getElementById('langEsBtn');
+  const offsetInput = document.getElementById('offsetInput');
+
+  langEnBtn.addEventListener('click', () => {
+    mainLang = 'en';
+    langEnBtn.classList.add('on');
+    langEsBtn.classList.remove('on');
+    renderLyrics();
+    activeIndex = -1; // force re-highlight on next tick
+  });
+  langEsBtn.addEventListener('click', () => {
+    mainLang = 'es';
+    langEsBtn.classList.add('on');
+    langEnBtn.classList.remove('on');
+    renderLyrics();
+    activeIndex = -1;
+  });
+  offsetInput.addEventListener('input', () => {
+    const v = parseFloat(offsetInput.value);
+    syncOffset = isFinite(v) ? v : 0;
+  });
+
+  const jsonInput = document.getElementById('jsonInput');
+  const loadBtn = document.getElementById('loadBtn');
+  const loadNote = document.getElementById('loadNote');
+  const loadPanel = document.getElementById('loadPanel');
+  const lyricsList = document.getElementById('lyricsList');
+  const editBtn = document.getElementById('editBtn');
+  const timecodeEl = document.getElementById('timecode');
+  const railFill = document.getElementById('railFill');
+
+  const infoBtn = document.getElementById('infoBtn');
+  const closeBtn = document.getElementById('closeBtn');
+  const scrim = document.getElementById('scrim');
+  const aboutPanel = document.getElementById('aboutPanel');
+
+  function openAbout(){ aboutPanel.classList.add('open'); scrim.classList.add('open'); }
+  function closeAbout(){ aboutPanel.classList.remove('open'); scrim.classList.remove('open'); }
+  infoBtn.addEventListener('click', openAbout);
+  closeBtn.addEventListener('click', closeAbout);
+  scrim.addEventListener('click', closeAbout);
+
+  localFileInput.addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const url = URL.createObjectURL(f);
+    localVideo.src = url;
+    localVideoWrap.style.display = 'block';
+    ytplayerEl.style.display = 'none';
+    ytFallback.style.display = 'none';
+    activeSource = 'local';
+    if(player && player.pauseVideo) player.pauseVideo();
+    localVideo.play();
+  });
+
+  function seekActive(t){
+    if(activeSource === 'local'){
+      localVideo.currentTime = t;
+      localVideo.play();
+    } else if(player && player.seekTo){
+      player.seekTo(t, true);
+      player.playVideo();
+    }
+  }
+
+  function getActiveTime(){
+    return activeSource === 'local' ? (localVideo.currentTime || 0) : (player && player.getCurrentTime ? player.getCurrentTime() : 0);
+  }
+  function getActiveDuration(){
+    return activeSource === 'local' ? (localVideo.duration || 0) : (player && player.getDuration ? player.getDuration() : 0);
+  }
+
+  function fmt(t){
+    if(!isFinite(t) || t < 0) t = 0;
+    const m = Math.floor(t/60);
+    const s = Math.floor(t%60);
+    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+
+  function renderLyrics(){
+    lyricsList.innerHTML = '';
+    lines.forEach((l, i) => {
+      const row = document.createElement('div');
+      row.className = 'lline';
+      row.dataset.idx = i;
+      const isInstr = (l.zh || '').trim().toUpperCase() === '[INSTRUMENTAL]';
+      if(isInstr){
+        row.innerHTML = `<span class="en">‹ instrumental ›</span>`;
+      } else if(mainLang === 'es'){
+        const esText = l.es && l.es.trim() ? l.es : null;
+        row.innerHTML = `<span class="es"></span><span class="zh es-note"></span>`;
+        row.querySelector('.es').textContent = esText || '[no Spanish line loaded yet]';
+        row.querySelector('.zh').textContent = l.en || '';
+      } else {
+        row.innerHTML = `<span class="en"></span><span class="zh"></span>`;
+        row.querySelector('.en').textContent = l.en || '';
+        row.querySelector('.zh').textContent = l.zh || '';
+      }
+      row.addEventListener('click', () => {
+        seekActive(l.start);
+      });
+      lyricsList.appendChild(row);
+    });
+  }
+
+  function updateActive(currentTime){
+    let idx = -1;
+    for(let i=0;i<lines.length;i++){
+      if(lines[i].start <= currentTime) idx = i; else break;
+    }
+    if(idx !== activeIndex){
+      activeIndex = idx;
+      const rows = lyricsList.querySelectorAll('.lline');
+      rows.forEach((row, i) => {
+        row.classList.remove('active','past','future');
+        row.classList.add(i === activeIndex ? 'active' : (i < activeIndex ? 'past' : 'future'));
+      });
+      const activeRow = lyricsList.querySelector(`[data-idx="${activeIndex}"]`);
+      if(activeRow) activeRow.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  }
+
+  async function loadStoredLyrics(){
+    if(ADMIN_MODE){
+      try{
+        const res = await window.storage.get('day-by-day-lyrics', false);
+        if(res && res.value){
+          const parsed = JSON.parse(res.value);
+          if(Array.isArray(parsed) && parsed.length){
+            lines = parsed;
+            activateLyricsView();
+          }
+        }
+      }catch(e){ /* no stored value yet, that's fine */ }
+    } else {
+      // Public/viewer build: load the pre-exported file sitting next to this HTML file.
+      try{
+        const res = await fetch('./lyrics.json');
+        if(res.ok){
+          const parsed = await res.json();
+          if(Array.isArray(parsed) && parsed.length){
+            lines = parsed.sort((a,b) => a.start - b.start);
+            activateLyricsView();
+          }
+        } else {
+          loadNote.textContent = 'Could not find lyrics.json next to this file.';
+        }
+      }catch(e){
+        loadNote.textContent = 'Could not load lyrics.json (are you opening this via file://? that blocks fetch — host it or run a local server).';
+      }
+    }
+  }
+
+  function activateLyricsView(){
+    loadPanel.style.display = 'none';
+    lyricsList.style.display = 'flex';
+    if(ADMIN_MODE){
+      editBtn.style.display = 'inline-block';
+      exportBtn.style.display = 'inline-block';
+    }
+    renderLyrics();
+  }
+
+  if(!ADMIN_MODE){
+    // No paste box, no upload, no edit button in the public build — read-only.
+    loadPanel.style.display = 'none';
+  }
+
+  loadBtn.addEventListener('click', async () => {
+    let parsed;
+    try{
+      parsed = JSON.parse(jsonInput.value);
+    }catch(e){
+      loadNote.textContent = 'Could not parse that as JSON — check the formatting.';
+      return;
+    }
+    if(!Array.isArray(parsed) || parsed.length === 0){
+      loadNote.textContent = 'Expected a non-empty array of {start, zh, en} objects.';
+      return;
+    }
+    lines = parsed.sort((a,b) => a.start - b.start);
+    try{ await window.storage.set('day-by-day-lyrics', JSON.stringify(lines), false); }catch(e){}
+    activateLyricsView();
+  });
+
+  editBtn.addEventListener('click', () => {
+    jsonInput.value = JSON.stringify(lines, null, 2);
+    loadPanel.style.display = 'block';
+    lyricsList.style.display = 'none';
+    editBtn.style.display = 'none';
+  });
+
+  exportBtn.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(lines, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lyrics.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  function startPolling(){
+    setInterval(() => {
+      const ct = getActiveTime();
+      const dur = getActiveDuration();
+      timecodeEl.textContent = fmt(ct) + ' / ' + fmt(dur);
+      railFill.style.height = (dur > 0 ? (ct/dur*100) : 0) + '%';
+      if(lines.length) updateActive(ct + syncOffset);
+    }, 150);
+  }
+
+  const ytFallback = document.getElementById('ytFallback');
+  const isFileProtocol = window.location.protocol === 'file:';
+
+  // YouTube IFrame API
+  window.onYouTubeIframeAPIReady = function(){
+    if(isFileProtocol){
+      // Don't even attempt to init — avoids the ugly native YouTube error page.
+      ytplayerEl.style.display = 'none';
+      ytFallback.style.display = 'flex';
+      return;
+    }
+    player = new YT.Player('ytplayer', {
+      videoId: VIDEO_ID,
+      playerVars: { rel: 0, modestbranding: 1 },
+      events: {
+        onReady: () => { startPolling(); },
+        onError: () => {
+          ytplayerEl.style.display = 'none';
+          ytFallback.style.display = 'flex';
+          ytFallback.querySelector('strong').textContent = 'This video can\'t be embedded';
+        },
+      }
+    });
+  };
+
+  // Also start polling right away in case the user goes straight to local-file mode
+  // and the YouTube iframe never becomes ready (e.g. blocked under file://).
+  startPolling();
+
+  function sizeLyrics(){
+    // Skip on the desktop grid layout — CSS handles sizing there via calc(100vh - Npx).
+    if(window.matchMedia('(min-width: 900px)').matches) return;
+    const topFixed = document.querySelector('.top-fixed');
+    if(!topFixed) return;
+    const available = window.innerHeight - topFixed.getBoundingClientRect().height - 12;
+    lyricsList.style.maxHeight = Math.max(180, available) + 'px';
+  }
+
+  const topFixedEl = document.querySelector('.top-fixed');
+  if('ResizeObserver' in window){
+    new ResizeObserver(sizeLyrics).observe(topFixedEl);
+  }
+  window.addEventListener('resize', sizeLyrics);
+  sizeLyrics();
+
+  loadStoredLyrics();
+})();
+</script>
+</body>
+</html>
